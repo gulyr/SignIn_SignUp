@@ -1,58 +1,51 @@
-name: Deploy React App
+# https://docusaurus.io/docs/deployment#triggering-deployment-with-github-actions
+# Author: axmmisaka; WTFPL or BSD 3-clause
+
+name: Deploy to GitHub Pages
 
 on:
+  pull_request:
   push:
     branches:
-      - main # Main branch-a itələnmə zamanı işə düşəcək
+      - main
+    # Review gh actions docs if you want to further define triggers, paths, etc
+    # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#on
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build:
-    name: Build
+    name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
-
     steps:
-      # Kodu yüklə
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      # Node.js versiyasını quraşdır
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: 18
+          cache: yarn
 
-      # Asılılıqları quraşdır
       - name: Install dependencies
-        run: npm install
-
-      # Layihəni qur
-      - name: Build project
-        run: npm run build
-
-      # Qurulan faylları yüklə
-      - name: Upload production-ready build files
-        uses: actions/upload-artifact@v3
+        run: yarn install --frozen-lockfile
+      - name: Build website
+        run: yarn build
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
         with:
-          name: production-files
-          path: ./build # React üçün çıxış qovluğu adətən `build` olur
-
-  deploy:
-    name: Deploy
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      # Artifaktları yüklə
-      - name: Download artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: production-files
           path: ./build
 
-      # GitHub Pages-ə yerləşdir
+  # Deployment job
+  deploy:
+    if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./build
+        id: deployment
+        uses: actions/deploy-pages@v3
+# TODO: Deploy to some third-party place for preview?
